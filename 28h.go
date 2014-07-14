@@ -4,17 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"strings"
 	"time"
-)
-
-const (
-	monday int = iota
-	tuesday
-	wednesday
-	thursday
-	friday
-	saturday
-	sunday
 )
 
 const (
@@ -24,6 +15,53 @@ const (
 	asleep         = 9 * time.Hour
 	firstDayOfWeek = monday
 	saneKitchen    = "15:04"
+)
+
+var (
+	//	all = flag.Bool("all", false, "print all possibilites")
+	dayFrom = flag.String("day", "monday", "day to build the week from")
+	wake    = flag.String("wake", "08:00", "time to wake up on the day to build the week from")
+)
+
+func main() {
+	flag.Parse()
+	var wakeTime time.Time
+	var err error
+	//	if *all {
+	//		wakeTime, err = time.Parse(saneKitchen, "00:00")
+	//	} else {
+	wakeTime, err = time.Parse(saneKitchen, *wake)
+	//	}
+	if err != nil {
+		log.Fatal(err)
+	}
+	// TODO(mpl): yesterday vs time.Time{}, ask or report bug?
+	origin, err := time.Parse(saneKitchen, "00:00")
+	if err != nil {
+		log.Fatal(err)
+	}
+	initDay, err := initialDay(wakeTime, origin)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// TODO(mpl): bug with 0
+	wk := week(initDay, origin)
+	wk = shift(wk, firstDayOfWeek)
+
+	for _, v := range wk {
+		fmt.Printf("%v	%v\n", toString[v.name][:3], v.String())
+	}
+
+}
+
+const (
+	monday int = iota
+	tuesday
+	wednesday
+	thursday
+	friday
+	saturday
+	sunday
 )
 
 var toString = map[int]string{
@@ -55,18 +93,40 @@ func (w weekDay) String() string {
 	return fmt.Sprintf("up %v bed %v up", w.bed.Format(saneKitchen), w.wakeup.Format(saneKitchen))
 }
 
-func weekFrom(first weekDay) []weekDay {
-	// TODO(mpl): report that bug
-	//	yesterday := time.Time{}
-	yesterday, err := time.Parse(time.Kitchen, "00:00AM")
-	if err != nil {
-		log.Fatal(err)
+func initialDay(wakeTime, origin time.Time) (weekDay, error) {
+	var initial weekDay
+	fromString := func(daystring string) int {
+		for k, v := range toString {
+			if strings.EqualFold(v, daystring) {
+				return k
+			}
+		}
+		return -1
 	}
+	name := fromString(*dayFrom)
+	if name == -1 {
+		return initial, fmt.Errorf("Invalid day name: %v", *dayFrom)
+	}
+	yesterday := origin
+	bedTime := wakeTime.Add(-asleep)
+	if bedTime.Before(yesterday) {
+		bedTime = wakeTime.Add(awake)
+	}
+	initial = weekDay{
+		name:   name,
+		wakeup: wakeTime,
+		bed:    bedTime,
+	}
+	return initial, nil
+}
+
+func week(initialDay weekDay, origin time.Time) []weekDay {
+	yesterday := origin
 	tomorrow := yesterday.Add(h24)
 	wk := make([]weekDay, 7)
-	wakeup := first.wakeup
-	bed := first.bed
-	name := first.name
+	wakeup := initialDay.wakeup
+	bed := initialDay.bed
+	name := initialDay.name
 	wakes := []time.Time{wakeup}
 	beds := []time.Time{bed}
 	for i := 0; i < 7; i++ {
@@ -99,72 +159,7 @@ func weekFrom(first weekDay) []weekDay {
 	return wk
 }
 
-func shift(week []weekDay, first int) []weekDay {
-	firstPos := 7 - week[0].name + first
+func shift(week []weekDay, asFirst int) []weekDay {
+	firstPos := 7 - week[0].name + asFirst
 	return append(week[firstPos:], week[:firstPos]...)
-}
-
-func week(from weekDay) {
-	wk := weekFrom(from)
-	wk = shift(wk, firstDayOfWeek)
-}
-
-var (
-	all     = flag.Bool("all", false, "print all possibilites")
-	dayFrom = flag.String("day", "monday", "day to build the week from")
-	wake    = flag.String("wake", "17:00", "time to wake up on the day to build the week from")
-)
-
-func doWeek(wakeTime time.Time) {
-	fromString := func(daystring string) int {
-		for k, v := range toString {
-			if v == daystring {
-				return k
-			}
-		}
-		return -1
-	}
-	from := weekDay{
-		// TODO(mpl): safe func. case insensitive.
-		name:   fromString(*dayFrom),
-		wakeup: wakeTime,
-	}
-	yesterday, err := time.Parse(time.Kitchen, "00:00AM")
-	if err != nil {
-		log.Fatal(err)
-	}
-	bedTime := wakeTime.Add(-asleep)
-	if bedTime.Before(yesterday) {
-		bedTime = wakeTime.Add(awake)
-	}
-	from.bed = bedTime
-
-	wk := weekFrom(from)
-
-	for _, v := range wk {
-		fmt.Printf("%v	%v\n", toString[v.name][:3], v.String())
-	}
-}
-
-func main() {
-	flag.Parse()
-	var wakeTime time.Time
-	var err error
-	if *all {
-		wakeTime, err = time.Parse(time.Kitchen, "00:00AM")
-	} else {
-		wakeTime, err = time.Parse(saneKitchen, *wake)
-	}
-	if err != nil {
-		log.Fatal(err)
-	}
-	for i := 0; i < 24; i++ {
-		// TODO(mpl): bug with 0
-		doWeek(wakeTime)
-		if !*all {
-			break
-		}
-		println()
-		wakeTime = wakeTime.Add(time.Hour)
-	}
 }
