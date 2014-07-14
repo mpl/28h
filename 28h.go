@@ -80,15 +80,10 @@ func weekFrom(first weekDay) []weekDay {
 		newDay := weekDay{
 			name: name,
 		}
-		println()
-		println(wakes[iw].Format(time.RFC3339))
-		println(yesterday.Format(time.RFC3339))
 		if wakes[iw].After(yesterday) && (wakes[iw].Before(tomorrow) || wakes[iw].Equal(tomorrow)) {
 			newDay.wakeup = wakes[iw]
 			iw++
 		}
-		println(beds[ib].Format(time.RFC3339))
-		println(tomorrow.Format(time.RFC3339))
 		if beds[ib].After(yesterday) && (beds[ib].Before(tomorrow) || beds[ib].Equal(tomorrow)) {
 			newDay.bed = beds[ib]
 			ib++
@@ -115,18 +110,12 @@ func week(from weekDay) {
 }
 
 var (
+	all     = flag.Bool("all", false, "print all possibilites")
 	dayFrom = flag.String("day", "monday", "day to build the week from")
-	// Kitchen     = "3:04PM
-	// TODO(mpl): use a time
-	wake = flag.String("wake", "17:00", "time to wake up on the day to build the week from")
+	wake    = flag.String("wake", "17:00", "time to wake up on the day to build the week from")
 )
 
-func main() {
-	flag.Parse()
-	wakeTime, err := time.Parse(saneKitchen, *wake)
-	if err != nil {
-		log.Fatal(err)
-	}
+func doWeek(wakeTime time.Time) {
 	fromString := func(daystring string) int {
 		for k, v := range toString {
 			if v == daystring {
@@ -153,20 +142,29 @@ func main() {
 	wk := weekFrom(from)
 
 	for _, v := range wk {
-		fmt.Printf("%v	", v.name)
-		println(v.String())
-		/*
-			if v.wakeup.IsZero() {
-				fmt.Printf("nope	")
-			} else {
-				fmt.Printf("%v	", v.wakeup.Format(saneKitchen))
-			}
-			if v.bed.IsZero() {
-				fmt.Printf("nope	")
-			} else {
-				fmt.Printf("%v	", v.bed.Format(saneKitchen))
-			}
-			println()
-		*/
+		fmt.Printf("%v	%v\n", toString[v.name][:3], v.String())
+	}
+}
+
+func main() {
+	flag.Parse()
+	var wakeTime time.Time
+	var err error
+	if *all {
+		wakeTime, err = time.Parse(time.Kitchen, "00:00AM")
+	} else {
+		wakeTime, err = time.Parse(saneKitchen, *wake)
+	}
+	if err != nil {
+		log.Fatal(err)
+	}
+	for i := 0; i < 24; i++ {
+		// TODO(mpl): bug with 0
+		doWeek(wakeTime)
+		if !*all {
+			break
+		}
+		println()
+		wakeTime = wakeTime.Add(time.Hour)
 	}
 }
