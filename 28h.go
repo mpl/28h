@@ -9,6 +9,7 @@ import (
 )
 
 const (
+	// TODO(mpl): allow for awake and asleep as parameters, as long as awake + asleep == 28
 	h24            = 24 * time.Hour
 	h28            = 28 * time.Hour
 	awake          = 19 * time.Hour
@@ -18,20 +19,13 @@ const (
 )
 
 var (
-	//	all = flag.Bool("all", false, "print all possibilites")
 	dayFrom = flag.String("day", "monday", "day to build the week from")
 	wake    = flag.String("wake", "08:00", "time to wake up on the day to build the week from")
 )
 
 func main() {
 	flag.Parse()
-	var wakeTime time.Time
-	var err error
-	//	if *all {
-	//		wakeTime, err = time.Parse(saneKitchen, "00:00")
-	//	} else {
-	wakeTime, err = time.Parse(saneKitchen, *wake)
-	//	}
+	wakeTime, err := time.Parse(saneKitchen, *wake)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -44,7 +38,6 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// TODO(mpl): bug with 0
 	wk := week(initDay, origin)
 	wk = shift(wk, firstDayOfWeek)
 
@@ -108,8 +101,20 @@ func initialDay(wakeTime, origin time.Time) (weekDay, error) {
 		return initial, fmt.Errorf("Invalid day name: %v", *dayFrom)
 	}
 	yesterday := origin
+	if wakeTime.Before(yesterday) {
+		return initial, fmt.Errorf("wakeTime is in the past")
+	}
+	if wakeTime.Equal(yesterday) {
+		bedTime := wakeTime.Add(awake)
+		wakeTime = bedTime.Add(asleep)
+		return weekDay{
+			name:   name,
+			wakeup: wakeTime,
+			bed:    bedTime,
+		}, nil
+	}
 	bedTime := wakeTime.Add(-asleep)
-	if bedTime.Before(yesterday) {
+	if bedTime.Before(yesterday) || bedTime.Equal(yesterday) {
 		bedTime = wakeTime.Add(awake)
 	}
 	initial = weekDay{
