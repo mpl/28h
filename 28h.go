@@ -23,30 +23,6 @@ var (
 	wake    = flag.String("wake", "08:00", "time to wake up on the day to build the week from")
 )
 
-func main() {
-	flag.Parse()
-	wakeTime, err := time.Parse(saneKitchen, *wake)
-	if err != nil {
-		log.Fatal(err)
-	}
-	// TODO(mpl): yesterday vs time.Time{}, ask or report bug?
-	origin, err := time.Parse(saneKitchen, "00:00")
-	if err != nil {
-		log.Fatal(err)
-	}
-	initDay, err := initialDay(wakeTime, origin)
-	if err != nil {
-		log.Fatal(err)
-	}
-	wk := week(initDay, origin)
-	wk = shift(wk, firstDayOfWeek)
-
-	for _, v := range wk {
-		fmt.Printf("%v	%v\n", toString[v.name][:3], v.String())
-	}
-
-}
-
 const (
 	monday int = iota
 	tuesday
@@ -65,6 +41,30 @@ var toString = map[int]string{
 	friday:    "friday",
 	saturday:  "saturday",
 	sunday:    "sunday",
+}
+
+func main() {
+	flag.Parse()
+	wakeTime, err := time.Parse(saneKitchen, *wake)
+	if err != nil {
+		log.Fatal(err)
+	}
+	// TODO(mpl): ask about origin != time.Time{}
+	origin, err := time.Parse(saneKitchen, "00:00")
+	if err != nil {
+		log.Fatal(err)
+	}
+	initDay, err := initialDay(wakeTime, origin)
+	if err != nil {
+		log.Fatal(err)
+	}
+	wk := week(initDay, origin)
+	wk = shift(wk, firstDayOfWeek)
+
+	for _, v := range wk {
+		fmt.Printf("%v	%v\n", toString[v.name][:3], v.String())
+	}
+
 }
 
 type weekDay struct {
